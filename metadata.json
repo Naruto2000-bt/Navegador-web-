@@ -1,0 +1,6 @@
+{
+  "name": "Aura Web Browser",
+  "description": "Navegador web minimalista y elegante con fondos personalizables, interfaz moderna y soporte completo para extensiones y scripts de usuario.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,25 @@
+<resources>
+    <string name="app_name">Aura Web Browser</string>
+    <string name="browser_search_hint">Buscar o escribir dirección web…</string>
+    <string name="new_tab">Nueva pestaña</string>
+    <string name="extensions_title">Extensiones</string>
+    <string name="bookmarks_title">Marcadores</string>
+    <string name="history_title">Historial</string>
+    <string name="settings_title">Configuración</string>
+    <string name="adblock_name">Bloqueador de Anuncios y Rastreadores</string>
+    <string name="adblock_desc">Limpia anuncios molestos y scripts de rastreo.</string>
+    <string name="darkmode_name">Modo Oscuro Universal</string>
+    <string name="darkmode_desc">Fuerza el tema oscuro en cualquier sitio web.</string>
+    <string name="reader_name">Modo Lectura / Lector Zen</string>
+    <string name="reader_desc">Formato limpio y sin distracciones para artículos.</string>
+    <string name="video_speed_name">Controlador de Video HTML5</string>
+    <string name="video_speed_desc">Ajusta la velocidad de videos (0.5x - 3.0x) y PiP.</string>
+    <string name="cookie_banner_name">Ocultador de Banners de Cookies</string>
+    <string name="cookie_banner_desc">Elimina automáticamente popups y avisos de cookies.</string>
+    <string name="custom_css_name">Inyector CSS Personalizado</string>
+    <string name="custom_css_desc">Aplica estilos visuales personalizados a la web.</string>
+    <string name="auto_translate_name">Traductor Instantáneo</string>
+    <string name="auto_translate_desc">Traduce páginas completas a tu idioma preferido.</string>
+    <string name="high_contrast_name">Realce de Legibilidad</string>
+    <string name="high_contrast_desc">Mejora el contraste y fuentes de texto.</string>
+</resources>
