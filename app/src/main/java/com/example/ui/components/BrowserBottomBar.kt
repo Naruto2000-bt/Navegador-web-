@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.FindInPage
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PhoneAndroid
@@ -70,6 +71,7 @@ fun BrowserBottomBar(
     onOpenNewIncognitoTab: () -> Unit = {},
     onToggleBookmark: () -> Unit,
     onOpenBookmarksHistory: () -> Unit,
+    onOpenPasswords: () -> Unit = {},
     onOpenSettings: () -> Unit,
     onToggleDesktopMode: () -> Unit,
     onOpenFindInPage: () -> Unit,
@@ -380,6 +382,21 @@ fun BrowserBottomBar(
                                 onOpenExtensionsManager()
                             },
                             modifier = Modifier.testTag("menu_extensions_item")
+                        )
+
+                        DropdownMenuItem(
+                            text = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Key, contentDescription = null, tint = Color(0xFFA5B4FC), modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text("Contraseñas guardadas", color = Color.White, fontSize = 13.sp)
+                                }
+                            },
+                            onClick = {
+                                showMenu = false
+                                onOpenPasswords()
+                            },
+                            modifier = Modifier.testTag("menu_passwords_item")
                         )
 
                         HorizontalDivider(color = Color(0x22FFFFFF), modifier = Modifier.padding(vertical = 4.dp))

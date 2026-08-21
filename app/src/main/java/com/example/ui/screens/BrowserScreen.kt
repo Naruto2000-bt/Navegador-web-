@@ -61,15 +61,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.data.entity.ExtensionEntity
+import com.example.data.entity.SavedCredentialEntity
 import com.example.extensions.AuraTranslateBridge
 import com.example.extensions.BuiltInExtensions
 import com.example.extensions.ExtensionEngine
 import com.example.extensions.TranslationEngine
 import com.example.model.BrowserTab
 import com.example.model.PageTranslationState
+import com.example.model.PendingCredentialSave
+import com.example.ui.components.AuraAuthBridge
+import com.example.ui.components.AutofillSuggestionChip
 import com.example.ui.components.FindInPageBar
 import com.example.ui.components.OmnibarSearch
 import com.example.ui.components.PageTranslationBar
+import com.example.ui.components.SavePasswordPromptBanner
+import com.example.ui.components.autofillLoginFields
 import com.example.viewmodel.WebViewAction
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -82,6 +88,14 @@ fun BrowserScreen(
     showFindInPage: Boolean,
     findQuery: String,
     translationState: PageTranslationState = PageTranslationState(),
+    pendingCredentialSave: PendingCredentialSave? = null,
+    activeAutofillSuggestion: SavedCredentialEntity? = null,
+    onSavePendingCredential: (PendingCredentialSave) -> Unit = {},
+    onDismissPendingCredential: () -> Unit = {},
+    onAutofillCredential: (SavedCredentialEntity) -> Unit = {},
+    onDismissAutofillSuggestion: () -> Unit = {},
+    onCredentialsDetected: (domain: String, url: String, user: String, pass: String) -> Unit = { _, _, _, _ -> },
+    onCheckForAutofill: (url: String) -> Unit = {},
     onFindQueryChange: (String) -> Unit,
     onCloseFindInPage: () -> Unit,
     onTranslate: (targetLang: String) -> Unit = {},
@@ -164,6 +178,9 @@ fun BrowserScreen(
                 val script = TranslationEngine.getRevertScript()
                 wv.evaluateJavascript(script, null)
             }
+            is WebViewAction.AutofillLogin -> {
+                wv.autofillLoginFields(webViewAction.user, webViewAction.pass)
+            }
             null -> {}
         }
         if (webViewAction != null) {
@@ -203,6 +220,13 @@ fun BrowserScreen(
                 onSelectSourceLang = onSelectSourceLang,
                 onSelectTargetLang = onSelectTargetLang,
                 onDismiss = onDismissTranslation
+            )
+
+            // Save Password Notification Prompt Banner
+            SavePasswordPromptBanner(
+                pendingCredential = pendingCredentialSave,
+                onSave = onSavePendingCredential,
+                onDismiss = onDismissPendingCredential
             )
 
             // Automatic Extension Detection Banner
@@ -298,174 +322,246 @@ fun BrowserScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(2.5.dp),
-                    color = Color(0xFF818CF8),
+                    color = if (currentTab.isIncognito) Color(0xFFA78BFA) else Color(0xFF818CF8),
                     trackColor = Color.Transparent
                 )
             }
 
-            // WebView Engine
-            AndroidView(
-                factory = { context ->
-                    WebView(context).apply {
-                        layoutParams = ViewGroup.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
-                        )
+            // WebView Engine Container
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                AndroidView(
+                    factory = { context ->
+                        WebView(context).apply {
+                            layoutParams = ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            )
 
-                        setLayerType(View.LAYER_TYPE_HARDWARE, null)
+                            setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
-                        addJavascriptInterface(
-                            AuraTranslateBridge(this, coroutineScope) { success ->
-                                onTranslationFinished()
-                            },
-                            "auraBridge"
-                        )
+                            // Translate Bridge
+                            addJavascriptInterface(
+                                AuraTranslateBridge(this, coroutineScope) { success ->
+                                    onTranslationFinished()
+                                },
+                                "auraBridge"
+                            )
 
-                        val cookieMgr = CookieManager.getInstance()
-                        cookieMgr.setAcceptCookie(true)
-                        cookieMgr.setAcceptThirdPartyCookies(this, true)
-
-                        settings.apply {
-                            javaScriptEnabled = true
-                            domStorageEnabled = !currentTab.isIncognito
-                            databaseEnabled = !currentTab.isIncognito
-                            loadWithOverviewMode = true
-                            useWideViewPort = true
-                            builtInZoomControls = true
-                            displayZoomControls = false
-                            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-                            cacheMode = if (currentTab.isIncognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
-                            mediaPlaybackRequiresUserGesture = false
-                            allowFileAccess = false
-                            allowContentAccess = true
-                            setSupportMultipleWindows(false)
-                            javaScriptCanOpenWindowsAutomatically = true
-
-                            val defaultUa = userAgentString
-                            userAgentString = defaultUa
-                                .replace("; wv", "")
-                                .replace(";wv", "")
-                                .replace(Regex("Version/[0-9.]+\\s*"), "")
-                        }
-
-                        webChromeClient = object : WebChromeClient() {
-                            override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                                val progressFloat = (newProgress / 100f).coerceIn(0f, 1f)
-                                onUpdateTab(
-                                    null, null, null,
-                                    newProgress < 100,
-                                    progressFloat,
-                                    view?.canGoBack(),
-                                    view?.canGoForward(),
-                                    null
+                            // Login / Credential Detection Bridge (Disabled in Incognito)
+                            if (!currentTab.isIncognito) {
+                                addJavascriptInterface(
+                                    AuraAuthBridge(onCredentialsDetected),
+                                    "AuraAuthBridge"
                                 )
+                            }
 
-                                if (newProgress in 35..60) {
-                                    val curUrl = view?.url ?: ""
-                                    if (curUrl.startsWith("http://") || curUrl.startsWith("https://")) {
-                                        view?.evaluateJavascript(TranslationEngine.DETECT_LANGUAGE_JS) { result ->
-                                            val cleanLang = result?.replace("\"", "")?.trim() ?: ""
-                                            if (cleanLang.isNotBlank() && cleanLang != "null" && cleanLang != "undefined") {
-                                                onLanguageDetected(cleanLang, curUrl)
+                            val cookieMgr = CookieManager.getInstance()
+                            if (currentTab.isIncognito) {
+                                cookieMgr.setAcceptCookie(false)
+                            } else {
+                                cookieMgr.setAcceptCookie(true)
+                                cookieMgr.setAcceptThirdPartyCookies(this, true)
+                            }
+
+                            settings.apply {
+                                javaScriptEnabled = true
+                                domStorageEnabled = !currentTab.isIncognito
+                                databaseEnabled = !currentTab.isIncognito
+                                loadWithOverviewMode = true
+                                useWideViewPort = true
+                                builtInZoomControls = true
+                                displayZoomControls = false
+                                mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                                cacheMode = if (currentTab.isIncognito) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
+                                mediaPlaybackRequiresUserGesture = false
+                                allowFileAccess = false
+                                allowContentAccess = true
+                                setSupportMultipleWindows(false)
+                                javaScriptCanOpenWindowsAutomatically = true
+
+                                val defaultUa = userAgentString
+                                userAgentString = defaultUa
+                                    .replace("; wv", "")
+                                    .replace(";wv", "")
+                                    .replace(Regex("Version/[0-9.]+\\s*"), "")
+                            }
+
+                            webChromeClient = object : WebChromeClient() {
+                                override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                                    val progressFloat = (newProgress / 100f).coerceIn(0f, 1f)
+                                    onUpdateTab(
+                                        null, null, null,
+                                        newProgress < 100,
+                                        progressFloat,
+                                        view?.canGoBack(),
+                                        view?.canGoForward(),
+                                        null
+                                    )
+
+                                    if (newProgress in 35..60) {
+                                        val curUrl = view?.url ?: ""
+                                        if (curUrl.startsWith("http://") || curUrl.startsWith("https://")) {
+                                            view?.evaluateJavascript(TranslationEngine.DETECT_LANGUAGE_JS) { result ->
+                                                val cleanLang = result?.replace("\"", "")?.trim() ?: ""
+                                                if (cleanLang.isNotBlank() && cleanLang != "null" && cleanLang != "undefined") {
+                                                    onLanguageDetected(cleanLang, curUrl)
+                                                }
                                             }
                                         }
                                     }
                                 }
-                            }
 
-                            override fun onReceivedTitle(view: WebView?, title: String?) {
-                                if (!title.isNullOrBlank() && title != "about:blank") {
-                                    val currentUrl = view?.url ?: ""
-                                    onUpdateTab(currentUrl, title, null, null, null, view?.canGoBack(), view?.canGoForward(), null)
-                                    onRecordHistory(currentUrl, title)
+                                override fun onReceivedTitle(view: WebView?, title: String?) {
+                                    if (!title.isNullOrBlank() && title != "about:blank") {
+                                        val currentUrl = view?.url ?: ""
+                                        onUpdateTab(currentUrl, title, null, null, null, view?.canGoBack(), view?.canGoForward(), null)
+                                        onRecordHistory(currentUrl, title)
+                                    }
                                 }
                             }
-                        }
 
+                            val spanishHeaders = mapOf(
+                                "Accept-Language" to "es-ES,es;q=0.9,en-US;q=0.8,en;q=0.7"
+                            )
+
+                            webViewClient = object : WebViewClient() {
+                                override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                                    url?.let {
+                                        val isSec = it.startsWith("https://")
+                                        onWebPageStarted(it)
+                                        onUpdateTab(it, null, null, true, 0.15f, view?.canGoBack(), view?.canGoForward(), isSec)
+                                        view?.evaluateJavascript(
+                                            """
+                                            (function() {
+                                                try {
+                                                    Object.defineProperty(navigator, 'language', { get: function() { return 'es-ES'; }, configurable: true });
+                                                    Object.defineProperty(navigator, 'languages', { get: function() { return ['es-ES', 'es', 'en-US', 'en']; }, configurable: true });
+                                                } catch(e) {}
+                                            })();
+                                            """.trimIndent(),
+                                            null
+                                        )
+                                        view?.let { wv ->
+                                            ExtensionEngine.injectExtensions(wv, extensions, it, isDocumentStart = true)
+                                        }
+                                    }
+                                }
+
+                                override fun onPageFinished(view: WebView?, url: String?) {
+                                    url?.let {
+                                        val isSec = it.startsWith("https://")
+                                        val title = view?.title ?: it
+                                        onUpdateTab(it, title, null, false, 1f, view?.canGoBack(), view?.canGoForward(), isSec)
+                                        onRecordHistory(it, title)
+
+                                        // Check for saved credentials for this site to suggest autofill
+                                        onCheckForAutofill(it)
+
+                                        view?.let { wv ->
+                                            ExtensionEngine.injectExtensions(wv, extensions, it, isDocumentStart = false)
+
+                                            // Inject Credential & Form Interception Script
+                                            if (!currentTab.isIncognito && it.startsWith("http", ignoreCase = true)) {
+                                                val authScript = """
+                                                    (function() {
+                                                        if (window.__auraAuthAttached) return;
+                                                        window.__auraAuthAttached = true;
+                                                        
+                                                        function checkAndReport(scope) {
+                                                            try {
+                                                                var container = scope || document;
+                                                                var pFields = container.querySelectorAll('input[type="password"]');
+                                                                if (!pFields || pFields.length === 0) return;
+                                                                
+                                                                var pass = pFields[0].value;
+                                                                if (!pass || pass.length === 0) return;
+                                                                
+                                                                var uField = container.querySelector(
+                                                                    'input[type="email"], input[name*="user"], input[name*="login"], input[name*="email"], input[id*="user"], input[id*="login"], input[id*="email"], input[autocomplete="username"], input[autocomplete="email"], input[type="text"]'
+                                                                );
+                                                                
+                                                                var user = uField ? uField.value : "";
+                                                                if (user && pass && window.AuraAuthBridge) {
+                                                                    window.AuraAuthBridge.onCredentialsDetected(window.location.href, user, pass);
+                                                                }
+                                                            } catch(e) {}
+                                                        }
+                                                        
+                                                        document.addEventListener('submit', function(e) {
+                                                            checkAndReport(e.target);
+                                                        }, true);
+                                                        
+                                                        document.addEventListener('click', function(e) {
+                                                            var target = e.target.closest('button, input[type="submit"], [role="button"]');
+                                                            if (target) {
+                                                                var form = target.closest('form');
+                                                                setTimeout(function() {
+                                                                    checkAndReport(form);
+                                                                }, 80);
+                                                            }
+                                                        }, true);
+                                                    })();
+                                                """.trimIndent()
+                                                wv.evaluateJavascript(authScript, null)
+                                            }
+
+                                            // Automatic Language Detection for Web Translation
+                                            wv.evaluateJavascript(TranslationEngine.DETECT_LANGUAGE_JS) { result ->
+                                                val cleanLang = result?.replace("\"", "")?.trim() ?: ""
+                                                if (cleanLang.isNotBlank() && cleanLang != "null" && cleanLang != "undefined") {
+                                                    onLanguageDetected(cleanLang, it)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                                    val targetUrl = request?.url?.toString() ?: return false
+                                    if (targetUrl.startsWith("http://") || targetUrl.startsWith("https://")) {
+                                        return false
+                                    }
+                                    return true
+                                }
+
+                                override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {
+                                    onUpdateTab(null, null, null, null, null, null, null, false)
+                                    handler?.proceed()
+                                }
+                            }
+
+                            webViewInstance = this
+                            if (currentTab.url.isNotBlank() && !currentTab.isHomePage) {
+                                loadUrl(currentTab.url, spanishHeaders)
+                            }
+                        }
+                    },
+                    update = { webView ->
                         val spanishHeaders = mapOf(
                             "Accept-Language" to "es-ES,es;q=0.9,en-US;q=0.8,en;q=0.7"
                         )
-
-                        webViewClient = object : WebViewClient() {
-                            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                                url?.let {
-                                    val isSec = it.startsWith("https://")
-                                    onWebPageStarted(it)
-                                    onUpdateTab(it, null, null, true, 0.15f, view?.canGoBack(), view?.canGoForward(), isSec)
-                                    view?.evaluateJavascript(
-                                        """
-                                        (function() {
-                                            try {
-                                                Object.defineProperty(navigator, 'language', { get: function() { return 'es-ES'; }, configurable: true });
-                                                Object.defineProperty(navigator, 'languages', { get: function() { return ['es-ES', 'es', 'en-US', 'en']; }, configurable: true });
-                                            } catch(e) {}
-                                        })();
-                                        """.trimIndent(),
-                                        null
-                                    )
-                                    view?.let { wv ->
-                                        ExtensionEngine.injectExtensions(wv, extensions, it, isDocumentStart = true)
-                                    }
-                                }
-                            }
-
-                            override fun onPageFinished(view: WebView?, url: String?) {
-                                url?.let {
-                                    val isSec = it.startsWith("https://")
-                                    val title = view?.title ?: it
-                                    onUpdateTab(it, title, null, false, 1f, view?.canGoBack(), view?.canGoForward(), isSec)
-                                    onRecordHistory(it, title)
-
-                                    view?.let { wv ->
-                                        ExtensionEngine.injectExtensions(wv, extensions, it, isDocumentStart = false)
-
-                                        // Automatic Language Detection for Web Translation
-                                        wv.evaluateJavascript(TranslationEngine.DETECT_LANGUAGE_JS) { result ->
-                                            val cleanLang = result?.replace("\"", "")?.trim() ?: ""
-                                            if (cleanLang.isNotBlank() && cleanLang != "null" && cleanLang != "undefined") {
-                                                onLanguageDetected(cleanLang, it)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                                val targetUrl = request?.url?.toString() ?: return false
-                                if (targetUrl.startsWith("http://") || targetUrl.startsWith("https://")) {
-                                    return false
-                                }
-                                return true
-                            }
-
-                            override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {
-                                onUpdateTab(null, null, null, null, null, null, null, false)
-                                handler?.proceed()
+                        if (!currentTab.isHomePage && currentTab.url.isNotBlank()) {
+                            val currentWvUrl = webView.url ?: ""
+                            if (currentWvUrl.isEmpty() || (currentWvUrl != currentTab.url && !currentWvUrl.startsWith(currentTab.url.substringBefore("?")))) {
+                                webView.loadUrl(currentTab.url, spanishHeaders)
                             }
                         }
+                    },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("browser_webview")
+                )
 
-                        webViewInstance = this
-                        if (currentTab.url.isNotBlank() && !currentTab.isHomePage) {
-                            loadUrl(currentTab.url, spanishHeaders)
-                        }
-                    }
-                },
-                update = { webView ->
-                    val spanishHeaders = mapOf(
-                        "Accept-Language" to "es-ES,es;q=0.9,en-US;q=0.8,en;q=0.7"
-                    )
-                    if (!currentTab.isHomePage && currentTab.url.isNotBlank()) {
-                        val currentWvUrl = webView.url ?: ""
-                        if (currentWvUrl.isEmpty() || (currentWvUrl != currentTab.url && !currentWvUrl.startsWith(currentTab.url.substringBefore("?")))) {
-                            webView.loadUrl(currentTab.url, spanishHeaders)
-                        }
-                    }
-                },
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .testTag("browser_webview")
-            )
+                // Autofill Suggestion Floating Bar at Bottom of Web Page
+                AutofillSuggestionChip(
+                    credential = activeAutofillSuggestion,
+                    onAutofill = onAutofillCredential,
+                    onDismiss = onDismissAutofillSuggestion,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 64.dp)
+                )
+            }
         }
     }
 

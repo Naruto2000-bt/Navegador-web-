@@ -8,12 +8,14 @@ import com.example.data.dao.BookmarkDao
 import com.example.data.dao.CacheClearLogDao
 import com.example.data.dao.ExtensionDao
 import com.example.data.dao.HistoryDao
+import com.example.data.dao.SavedCredentialDao
 import com.example.data.dao.SitePermissionDao
 import com.example.data.dao.TabDao
 import com.example.data.entity.BookmarkEntity
 import com.example.data.entity.CacheClearLogEntity
 import com.example.data.entity.ExtensionEntity
 import com.example.data.entity.HistoryEntity
+import com.example.data.entity.SavedCredentialEntity
 import com.example.data.entity.SitePermissionEntity
 import com.example.data.entity.TabEntity
 
@@ -24,9 +26,10 @@ import com.example.data.entity.TabEntity
         ExtensionEntity::class,
         TabEntity::class,
         CacheClearLogEntity::class,
-        SitePermissionEntity::class
+        SitePermissionEntity::class,
+        SavedCredentialEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -36,6 +39,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun tabDao(): TabDao
     abstract fun cacheClearLogDao(): CacheClearLogDao
     abstract fun sitePermissionDao(): SitePermissionDao
+    abstract fun savedCredentialDao(): SavedCredentialDao
 
     companion object {
         @Volatile

@@ -77,6 +77,10 @@ fun AuraBrowserApp(
     val cookiePolicy by viewModel.globalCookiePolicy.collectAsState()
     val siteDataList by viewModel.siteDataList.collectAsState()
     val cacheClearLogs by viewModel.cacheClearLogs.collectAsState()
+    val savedCredentials by viewModel.savedCredentials.collectAsState()
+    val isAutoSaveCredentialsEnabled by viewModel.isAutoSaveCredentialsEnabled.collectAsState()
+    val pendingCredentialSave by viewModel.pendingCredentialSave.collectAsState()
+    val activeAutofillSuggestion by viewModel.activeAutofillSuggestion.collectAsState()
 
     // Dialog & Sheet States
     val showTabsOverview by viewModel.showTabsOverview.collectAsState()
@@ -143,6 +147,21 @@ fun AuraBrowserApp(
                     showFindInPage = showFindInPage,
                     findQuery = findQuery,
                     translationState = pageTranslationState,
+                    pendingCredentialSave = pendingCredentialSave,
+                    activeAutofillSuggestion = activeAutofillSuggestion,
+                    onSavePendingCredential = { pending ->
+                        viewModel.savePendingCredential(pending)
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("Contraseña guardada para ${pending.domain}")
+                        }
+                    },
+                    onDismissPendingCredential = { viewModel.dismissPendingCredential() },
+                    onAutofillCredential = { cred -> viewModel.triggerAutofill(cred) },
+                    onDismissAutofillSuggestion = { viewModel.dismissAutofillSuggestion() },
+                    onCredentialsDetected = { domain, url, user, pass ->
+                        viewModel.onLoginCredentialsDetected(domain, url, user, pass)
+                    },
+                    onCheckForAutofill = { url -> viewModel.checkForAutofillSuggestion(url) },
                     onFindQueryChange = { q -> viewModel.setFindQuery(q) },
                     onCloseFindInPage = { viewModel.setFindInPageVisible(false) },
                     onTranslate = { targetLang -> viewModel.translatePage(targetLang) },
@@ -325,6 +344,14 @@ fun AuraBrowserApp(
                 cookiePolicy = cookiePolicy,
                 siteDataList = siteDataList,
                 clearLogs = cacheClearLogs,
+                savedCredentials = savedCredentials,
+                isAutoSaveCredentialsEnabled = isAutoSaveCredentialsEnabled,
+                onToggleAutoSaveCredentials = { enabled -> viewModel.toggleAutoSaveCredentials(enabled) },
+                onSaveManualCredential = { domain, url, user, pass ->
+                    viewModel.saveCredentialManual(domain, url, user, pass)
+                },
+                onDeleteSavedCredential = { id -> viewModel.deleteSavedCredential(id) },
+                onClearAllSavedCredentials = { viewModel.clearAllSavedCredentials() },
                 onSelectWallpaper = { opt -> viewModel.setWallpaper(opt) },
                 onSelectSearchEngine = { engine -> viewModel.setSearchEngine(engine) },
                 onSelectCookiePolicy = { policy -> viewModel.setGlobalCookiePolicy(policy) },

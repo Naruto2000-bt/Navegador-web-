@@ -11,10 +11,12 @@ import com.example.data.entity.BookmarkEntity
 import com.example.data.entity.CacheClearLogEntity
 import com.example.data.entity.ExtensionEntity
 import com.example.data.entity.HistoryEntity
+import com.example.data.entity.SavedCredentialEntity
 import com.example.data.entity.SitePermissionEntity
 import com.example.extensions.BuiltInExtensions
 import com.example.model.BrowserTab
 import com.example.model.CookiePolicy
+import com.example.model.PendingCredentialSave
 import com.example.model.QuickShortcut
 import com.example.model.SearchEngine
 import com.example.model.SiteDataInfo
@@ -38,6 +40,20 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     private val extensionDao = db.extensionDao()
     private val cacheClearLogDao = db.cacheClearLogDao()
     private val sitePermissionDao = db.sitePermissionDao()
+    private val savedCredentialDao = db.savedCredentialDao()
+
+    // Saved Credentials & Auto-Save State
+    val savedCredentials: StateFlow<List<SavedCredentialEntity>> = savedCredentialDao.getAllCredentials()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _isAutoSaveCredentialsEnabled = MutableStateFlow(true)
+    val isAutoSaveCredentialsEnabled: StateFlow<Boolean> = _isAutoSaveCredentialsEnabled.asStateFlow()
+
+    private val _pendingCredentialSave = MutableStateFlow<PendingCredentialSave?>(null)
+    val pendingCredentialSave: StateFlow<PendingCredentialSave?> = _pendingCredentialSave.asStateFlow()
+
+    private val _activeAutofillSuggestion = MutableStateFlow<SavedCredentialEntity?>(null)
+    val activeAutofillSuggestion: StateFlow<SavedCredentialEntity?> = _activeAutofillSuggestion.asStateFlow()
 
     // Tabs Management
     private val _tabs = MutableStateFlow<List<BrowserTab>>(listOf(BrowserTab()))
@@ -170,6 +186,9 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     private val _showSettings = MutableStateFlow(false)
     val showSettings: StateFlow<Boolean> = _showSettings.asStateFlow()
+
+    private val _settingsInitialTab = MutableStateFlow(0)
+    val settingsInitialTab: StateFlow<Int> = _settingsInitialTab.asStateFlow()
 
     private val _showExtensionPagePopup = MutableStateFlow(false)
     val showExtensionPagePopup: StateFlow<Boolean> = _showExtensionPagePopup.asStateFlow()
@@ -632,7 +651,14 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     fun setTabsOverviewVisible(visible: Boolean) { _showTabsOverview.value = visible }
     fun setExtensionsManagerVisible(visible: Boolean) { _showExtensionsManager.value = visible }
     fun setBookmarksHistoryVisible(visible: Boolean) { _showBookmarksHistory.value = visible }
-    fun setSettingsVisible(visible: Boolean) { _showSettings.value = visible }
+    fun setSettingsVisible(visible: Boolean, tabIndex: Int = 0) {
+        _settingsInitialTab.value = tabIndex
+        _showSettings.value = visible
+    }
+    fun openSettings(tabIndex: Int = 0) {
+        _settingsInitialTab.value = tabIndex
+        _showSettings.value = true
+    }
     fun setExtensionPagePopupVisible(visible: Boolean) { _showExtensionPagePopup.value = visible }
     fun setFindInPageVisible(visible: Boolean) {
         _showFindInPage.value = visible
@@ -758,6 +784,115 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         )
         triggerWebViewAction(WebViewAction.RevertTranslation)
     }
+
+    // --- Saved Credentials & Password Manager Operations ---
+    fun toggleAutoSaveCredentials(enabled: Boolean) {
+        _isAutoSaveCredentialsEnabled.value = enabled
+    }
+
+    fun onLoginCredentialsDetected(domain: String, url: String, username: String, password: String) {
+        if (!_isAutoSaveCredentialsEnabled.value) return
+        if (currentTab.isIncognito) return // Never save in incognito
+        if (username.isBlank() || password.isBlank()) return
+
+        viewModelScope.launch {
+            val existing = savedCredentialDao.getCredentialForExactDomain(domain)
+            if (existing != null && existing.username == username && existing.password == password) {
+                savedCredentialDao.updateCredential(existing.copy(lastUsedTimestamp = System.currentTimeMillis()))
+                return@launch
+            }
+
+            _pendingCredentialSave.value = PendingCredentialSave(
+                domain = domain,
+                url = url,
+                username = username,
+                password = password,
+                isUpdate = existing != null,
+                existingId = existing?.id
+            )
+        }
+    }
+
+    fun savePendingCredential(pending: PendingCredentialSave) {
+        viewModelScope.launch {
+            val entity = SavedCredentialEntity(
+                id = pending.existingId ?: 0,
+                domain = pending.domain,
+                url = pending.url,
+                username = pending.username,
+                password = pending.password,
+                lastUsedTimestamp = System.currentTimeMillis()
+            )
+            savedCredentialDao.insertCredential(entity)
+            _pendingCredentialSave.value = null
+        }
+    }
+
+    fun dismissPendingCredential() {
+        _pendingCredentialSave.value = null
+    }
+
+    fun saveCredentialManual(domain: String, url: String, username: String, password: String) {
+        viewModelScope.launch {
+            val entity = SavedCredentialEntity(
+                domain = domain,
+                url = url,
+                username = username,
+                password = password,
+                lastUsedTimestamp = System.currentTimeMillis()
+            )
+            savedCredentialDao.insertCredential(entity)
+        }
+    }
+
+    fun deleteSavedCredential(id: Long) {
+        viewModelScope.launch {
+            savedCredentialDao.deleteById(id)
+            if (_activeAutofillSuggestion.value?.id == id) {
+                _activeAutofillSuggestion.value = null
+            }
+        }
+    }
+
+    fun clearAllSavedCredentials() {
+        viewModelScope.launch {
+            savedCredentialDao.clearAll()
+            _activeAutofillSuggestion.value = null
+        }
+    }
+
+    fun checkForAutofillSuggestion(url: String) {
+        if (currentTab.isIncognito || url.isBlank() || url.startsWith("aura://")) {
+            _activeAutofillSuggestion.value = null
+            return
+        }
+        val domain = try {
+            Uri.parse(url).host?.removePrefix("www.") ?: ""
+        } catch (e: Exception) {
+            ""
+        }
+        if (domain.isBlank()) {
+            _activeAutofillSuggestion.value = null
+            return
+        }
+
+        viewModelScope.launch {
+            val credential = savedCredentialDao.getCredentialForExactDomain(domain)
+            _activeAutofillSuggestion.value = credential
+        }
+    }
+
+    fun dismissAutofillSuggestion() {
+        _activeAutofillSuggestion.value = null
+    }
+
+    fun triggerAutofill(credential: SavedCredentialEntity) {
+        viewModelScope.launch {
+            savedCredentialDao.updateCredential(credential.copy(lastUsedTimestamp = System.currentTimeMillis()))
+            triggerWebViewAction(WebViewAction.AutofillLogin(credential.username, credential.password))
+            _activeAutofillSuggestion.value = null
+        }
+    }
 }
 
 sealed class WebViewAction {
@@ -774,4 +909,5 @@ sealed class WebViewAction {
     data class RunScript(val script: String) : WebViewAction()
     data class TranslatePage(val sourceLang: String, val targetLang: String) : WebViewAction()
     object RevertTranslation : WebViewAction()
+    data class AutofillLogin(val user: String, val pass: String) : WebViewAction()
 }
