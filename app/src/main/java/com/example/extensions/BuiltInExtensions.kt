@@ -9,7 +9,7 @@ object BuiltInExtensions {
             identifier = "adblock_core",
             name = "Bloqueador de Anuncios y Rastreadores",
             description = "Elimina anuncios intrusivos, banners, popups y scripts de rastreo cosméticos.",
-            version = "2.4.0",
+            version = "2.5.0",
             author = "Aura Shield Core",
             iconCategory = "shield",
             isBuiltIn = true,
@@ -69,7 +69,7 @@ object BuiltInExtensions {
             identifier = "darkmode_oled",
             name = "Modo Oscuro Universal",
             description = "Fuerza un elegante tema oscuro en cualquier sitio web manteniendo fotos y videos intactos.",
-            version = "3.1.0",
+            version = "3.2.0",
             author = "Aura Night Engine",
             iconCategory = "moon",
             isBuiltIn = true,
@@ -105,135 +105,11 @@ object BuiltInExtensions {
             """.trimIndent()
         ),
         ExtensionEntity(
-            id = 3,
-            identifier = "cookie_killer",
-            name = "Ocultador de Avisos de Cookies",
-            description = "Detecta y oculta automáticamente modales y banners molestos de cookies y GDPR.",
-            version = "1.8.2",
-            author = "Aura Clean Web",
-            iconCategory = "sparkle",
-            isBuiltIn = true,
-            isEnabled = true,
-            matchUrlPattern = "*",
-            runAt = "DOCUMENT_END",
-            scriptJs = """
-                (function() {
-                    const cookieSelectors = [
-                        "#onetrust-consent-sdk", "#onetrust-banner-sdk", "#cookie-law-info-bar",
-                        ".cookie-banner", ".cookie-notice", ".cookie-bar", ".cc-window",
-                        "#CybotCookiebotDialog", ".qc-cmp2-container", ".didomi-popup-container",
-                        "[id*='cookie-consent']", "[class*='cookie-consent']", "[id*='gdpr-modal']",
-                        "[aria-label*='cookie consent' i]", "[aria-label*='cookies' i]"
-                    ];
-
-                    function dismissCookieModals() {
-                        const selector = cookieSelectors.join(',');
-                        document.querySelectorAll(selector).forEach(el => {
-                            el.style.setProperty('display', 'none', 'important');
-                            el.style.setProperty('opacity', '0', 'important');
-                        });
-                        // Ensure scrolling is restored
-                        document.documentElement.style.setProperty('overflow', 'auto', 'important');
-                        document.body.style.setProperty('overflow', 'auto', 'important');
-                        document.body.style.setProperty('position', 'static', 'important');
-                    }
-
-                    dismissCookieModals();
-                    setInterval(dismissCookieModals, 1200);
-                })();
-            """.trimIndent()
-        ),
-        ExtensionEntity(
-            id = 4,
-            identifier = "video_speed_master",
-            name = "Controlador de Video HTML5 & PiP",
-            description = "Permite cambiar la velocidad de reproducción de videos (0.5x - 3.0x) y activar PiP.",
-            version = "2.0.0",
-            author = "Aura Media Tools",
-            iconCategory = "video",
-            isBuiltIn = true,
-            isEnabled = true,
-            matchUrlPattern = "*",
-            runAt = "DOCUMENT_END",
-            scriptJs = """
-                (function() {
-                    window.AuraVideoTool = {
-                        setSpeed: function(speed) {
-                            document.querySelectorAll('video').forEach(v => { v.playbackRate = speed; });
-                            return 'Speed set to ' + speed;
-                        },
-                        togglePiP: function() {
-                            const v = document.querySelector('video');
-                            if (v && document.pictureInPictureEnabled) {
-                                if (document.pictureInPictureElement) {
-                                    document.exitPictureInPicture();
-                                } else {
-                                    v.requestPictureInPicture();
-                                }
-                            }
-                        }
-                    };
-                })();
-            """.trimIndent()
-        ),
-        ExtensionEntity(
-            id = 5,
-            identifier = "zen_reader_mode",
-            name = "Modo Lectura / Lector Zen",
-            description = "Extrae el texto principal de artículos con tipografía limpia y sin distracciones.",
-            version = "1.5.0",
-            author = "Aura Reading Lab",
-            iconCategory = "book",
-            isBuiltIn = true,
-            isEnabled = false,
-            matchUrlPattern = "*",
-            runAt = "DOCUMENT_END",
-            scriptJs = """
-                (function() {
-                    window.AuraReader = {
-                        activate: function() {
-                            let title = document.title || 'Artículo';
-                            let h1 = document.querySelector('h1');
-                            if (h1) title = h1.innerText;
-                            
-                            let article = document.querySelector('article') || 
-                                          document.querySelector('.article-body') || 
-                                          document.querySelector('.post-content') ||
-                                          document.querySelector('#content') ||
-                                          document.querySelector('main');
-                            
-                            let contentHtml = article ? article.innerHTML : '';
-                            if (!contentHtml) {
-                                const ps = Array.from(document.querySelectorAll('p')).map(p => p.outerHTML).join('');
-                                contentHtml = ps;
-                            }
-
-                            const readerContainer = document.createElement('div');
-                            readerContainer.id = 'aura-zen-reader-view';
-                            readerContainer.innerHTML = `
-                                <div style="max-width: 680px; margin: 40px auto; padding: 24px; font-family: Georgia, serif; font-size: 19px; line-height: 1.7; color: #E8E6E3; background-color: #181A1B;">
-                                    <button id="aura-close-reader" style="background:#2C2E33; color:#FFF; border:none; padding:8px 16px; border-radius:20px; font-size:14px; margin-bottom:24px; cursor:pointer;">← Cerrar Modo Lectura</button>
-                                    <h1 style="font-size: 30px; line-height: 1.25; margin-bottom: 20px; font-weight: 700; color: #FFF;">${'$'}{title}</h1>
-                                    <div class="aura-reader-content">${'$'}{contentHtml}</div>
-                                </div>
-                            `;
-                            readerContainer.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:#181A1B; z-index:9999999; overflow-y:auto;';
-                            document.body.appendChild(readerContainer);
-                            
-                            document.getElementById('aura-close-reader').onclick = function() {
-                                readerContainer.remove();
-                            };
-                        }
-                    };
-                })();
-            """.trimIndent()
-        ),
-        ExtensionEntity(
             id = 7,
             identifier = "youtube_age_bypass",
-            name = "YouTube Video & Age Bypass",
-            description = "Reproduce videos sin restricciones ni inicio de sesión obligatorio y descarta avisos de confirmación.",
-            version = "2.2.0",
+            name = "YouTube Pro & Bypass de Edad",
+            description = "Reproduce videos sin restricciones de inicio de sesión ni anuncios intermedios y descarta avisos.",
+            version = "2.3.0",
             author = "Aura Media Shield",
             iconCategory = "video",
             isBuiltIn = true,
@@ -299,12 +175,10 @@ object BuiltInExtensions {
                             target.insertBefore(wrapper, target.firstChild);
                         }
 
-                        // Remove existing error overlays
                         document.querySelectorAll('ytm-player-error-message-renderer, ytd-enforcement-message-view-model, .ytp-error').forEach(el => el.remove());
                     }
 
                     function unlockYouTube() {
-                        // 1. Auto-dismiss Google/YouTube consent & age confirmation modals
                         const dismissButtons = document.querySelectorAll(
                             "button[aria-label*='Aceptar' i], button[aria-label*='Accept' i], " +
                             "button[aria-label*='Entendido' i], button[aria-label*='I understand' i], " +
@@ -318,7 +192,6 @@ object BuiltInExtensions {
                             }
                         });
 
-                        // 2. Detect age-gate or unplayable error message on watch page
                         const bodyText = (document.body ? document.body.innerText || "" : "").toLowerCase();
                         const hasAgeGate = 
                             bodyText.includes("inicia sesión para confirmar tu edad") || 
@@ -336,7 +209,6 @@ object BuiltInExtensions {
                             forceEmbedPlayer(videoId);
                         }
 
-                        // 3. Inject floating bypass helper button on video pages if not already injected
                         if (videoId && location.href.includes('/watch') && !document.getElementById('aura-bypass-btn')) {
                             const btn = document.createElement('div');
                             btn.id = 'aura-bypass-btn';
@@ -365,10 +237,233 @@ object BuiltInExtensions {
             """.trimIndent()
         ),
         ExtensionEntity(
+            id = 5,
+            identifier = "zen_reader_mode",
+            name = "Lector Zen / Modo Lectura",
+            description = "Extrae el texto de artículos y noticias con tipografía limpia y elimina distracciones.",
+            version = "1.6.0",
+            author = "Aura Reading Lab",
+            iconCategory = "book",
+            isBuiltIn = true,
+            isEnabled = false,
+            matchUrlPattern = "*",
+            runAt = "DOCUMENT_END",
+            scriptJs = """
+                (function() {
+                    window.AuraReader = {
+                        activate: function() {
+                            let title = document.title || 'Artículo';
+                            let h1 = document.querySelector('h1');
+                            if (h1) title = h1.innerText;
+                            
+                            let article = document.querySelector('article') || 
+                                          document.querySelector('.article-body') || 
+                                          document.querySelector('.post-content') ||
+                                          document.querySelector('#content') ||
+                                          document.querySelector('main');
+                            
+                            let contentHtml = article ? article.innerHTML : '';
+                            if (!contentHtml) {
+                                const ps = Array.from(document.querySelectorAll('p')).map(p => p.outerHTML).join('');
+                                contentHtml = ps;
+                            }
+
+                            const readerContainer = document.createElement('div');
+                            readerContainer.id = 'aura-zen-reader-view';
+                            readerContainer.innerHTML = `
+                                <div style="max-width: 680px; margin: 40px auto; padding: 24px; font-family: Georgia, serif; font-size: 19px; line-height: 1.7; color: #E8E6E3; background-color: #181A1B;">
+                                    <button id="aura-close-reader" style="background:#2C2E33; color:#FFF; border:none; padding:8px 16px; border-radius:20px; font-size:14px; margin-bottom:24px; cursor:pointer;">← Cerrar Modo Lectura</button>
+                                    <h1 style="font-size: 30px; line-height: 1.25; margin-bottom: 20px; font-weight: 700; color: #FFF;">${'$'}{title}</h1>
+                                    <div class="aura-reader-content">${'$'}{contentHtml}</div>
+                                </div>
+                            `;
+                            readerContainer.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:#181A1B; z-index:9999999; overflow-y:auto;';
+                            document.body.appendChild(readerContainer);
+                            
+                            document.getElementById('aura-close-reader').onclick = function() {
+                                readerContainer.remove();
+                            };
+                        }
+                    };
+                })();
+            """.trimIndent()
+        ),
+        ExtensionEntity(
+            id = 4,
+            identifier = "video_speed_master",
+            name = "Controlador de Video & PiP",
+            description = "Controla la velocidad de videos (0.5x a 3.0x) y activa ventana flotante PiP.",
+            version = "2.1.0",
+            author = "Aura Media Tools",
+            iconCategory = "video",
+            isBuiltIn = true,
+            isEnabled = true,
+            matchUrlPattern = "*",
+            runAt = "DOCUMENT_END",
+            scriptJs = """
+                (function() {
+                    window.AuraVideoTool = {
+                        setSpeed: function(speed) {
+                            document.querySelectorAll('video').forEach(v => { v.playbackRate = speed; });
+                            return 'Speed set to ' + speed;
+                        },
+                        togglePiP: function() {
+                            const v = document.querySelector('video');
+                            if (v && document.pictureInPictureEnabled) {
+                                if (document.pictureInPictureElement) {
+                                    document.exitPictureInPicture();
+                                } else {
+                                    v.requestPictureInPicture();
+                                }
+                            }
+                        }
+                    };
+                })();
+            """.trimIndent()
+        ),
+        ExtensionEntity(
+            id = 3,
+            identifier = "cookie_killer",
+            name = "Auto-Ocultador de Cookies y GDPR",
+            description = "Descarta automáticamente modales y banners molestos de cookies en cualquier web.",
+            version = "1.9.0",
+            author = "Aura Clean Web",
+            iconCategory = "sparkle",
+            isBuiltIn = true,
+            isEnabled = true,
+            matchUrlPattern = "*",
+            runAt = "DOCUMENT_END",
+            scriptJs = """
+                (function() {
+                    const cookieSelectors = [
+                        "#onetrust-consent-sdk", "#onetrust-banner-sdk", "#cookie-law-info-bar",
+                        ".cookie-banner", ".cookie-notice", ".cookie-bar", ".cc-window",
+                        "#CybotCookiebotDialog", ".qc-cmp2-container", ".didomi-popup-container",
+                        "[id*='cookie-consent']", "[class*='cookie-consent']", "[id*='gdpr-modal']",
+                        "[aria-label*='cookie consent' i]", "[aria-label*='cookies' i]"
+                    ];
+
+                    function dismissCookieModals() {
+                        const selector = cookieSelectors.join(',');
+                        document.querySelectorAll(selector).forEach(el => {
+                            el.style.setProperty('display', 'none', 'important');
+                            el.style.setProperty('opacity', '0', 'important');
+                        });
+                        document.documentElement.style.setProperty('overflow', 'auto', 'important');
+                        document.body.style.setProperty('overflow', 'auto', 'important');
+                        document.body.style.setProperty('position', 'static', 'important');
+                    }
+
+                    dismissCookieModals();
+                    setInterval(dismissCookieModals, 1200);
+                })();
+            """.trimIndent()
+        ),
+        ExtensionEntity(
+            id = 8,
+            identifier = "paywall_cleaner",
+            name = "Desbloqueador de Lectura y Artículos",
+            description = "Restaura el scroll y elimina muros de suscripción o bloqueos de contenido en periódicos.",
+            version = "1.2.0",
+            author = "Aura Reader Lab",
+            iconCategory = "book",
+            isBuiltIn = true,
+            isEnabled = true,
+            matchUrlPattern = "*",
+            runAt = "DOCUMENT_END",
+            scriptJs = """
+                (function() {
+                    function unlockArticles() {
+                        document.querySelectorAll('.paywall, .modal-backdrop, .overlay-barrier, [class*="paywall"], [id*="paywall"], .tp-modal, .tp-backdrop').forEach(el => {
+                            el.style.setProperty('display', 'none', 'important');
+                        });
+                        document.body.style.setProperty('overflow', 'auto', 'important');
+                        document.documentElement.style.setProperty('overflow', 'auto', 'important');
+                    }
+                    unlockArticles();
+                    setInterval(unlockArticles, 2000);
+                })();
+            """.trimIndent()
+        ),
+        ExtensionEntity(
+            id = 9,
+            identifier = "quick_translator",
+            name = "Traductor Flotante de Páginas",
+            description = "Traduce rápidamente páginas en otros idiomas al español con un botón flotante discreto.",
+            version = "1.0.0",
+            author = "Aura Language Hub",
+            iconCategory = "translate",
+            isBuiltIn = true,
+            isEnabled = false,
+            matchUrlPattern = "*",
+            runAt = "DOCUMENT_END",
+            scriptJs = """
+                (function() {
+                    if (document.getElementById('aura-quick-translate-btn')) return;
+                    const btn = document.createElement('div');
+                    btn.id = 'aura-quick-translate-btn';
+                    btn.style.cssText = 'position:fixed; bottom:75px; left:16px; background:#4F46E5; color:#FFF; padding:6px 12px; border-radius:20px; font-size:12px; font-weight:600; z-index:999999; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.3); font-family:sans-serif;';
+                    btn.innerHTML = '🌐 Traducir a Español';
+                    btn.onclick = function() {
+                        location.href = 'https://translate.google.com/translate?sl=auto&tl=es&u=' + encodeURIComponent(location.href);
+                    };
+                    document.body.appendChild(btn);
+                })();
+            """.trimIndent()
+        ),
+        ExtensionEntity(
+            id = 10,
+            identifier = "wikipedia_zen",
+            name = "Wikipedia Plus & Tabla de Contenidos",
+            description = "Mejora el formato de lectura de Wikipedia y añade una navegación limpia entre secciones.",
+            version = "1.1.0",
+            author = "Aura Reading Lab",
+            iconCategory = "book",
+            isBuiltIn = true,
+            isEnabled = true,
+            matchUrlPattern = "wikipedia.org",
+            runAt = "DOCUMENT_END",
+            scriptJs = """
+                (function() {
+                    const style = document.createElement('style');
+                    style.textContent = `
+                        .content { max-width: 820px !important; margin: 0 auto !important; font-size: 17px !important; line-height: 1.65 !important; }
+                        #mw-mf-page-center { max-width: 860px !important; margin: 0 auto !important; }
+                    `;
+                    document.head.appendChild(style);
+                })();
+            """.trimIndent()
+        ),
+        ExtensionEntity(
+            id = 11,
+            identifier = "shopping_price_helper",
+            name = "Asistente de Precios y Ofertas (Amazon)",
+            description = "Oculta anuncios patrocinados de compras y resalta los mejores precios reales.",
+            version = "1.0.0",
+            author = "Aura Shopping Tools",
+            iconCategory = "sparkle",
+            isBuiltIn = true,
+            isEnabled = false,
+            matchUrlPattern = "amazon.",
+            runAt = "DOCUMENT_END",
+            scriptJs = """
+                (function() {
+                    function cleanAmazon() {
+                        document.querySelectorAll("[data-component-type='sp-sponsored-result'], .AdHolder, .s-sponsored-label-info-icon").forEach(el => {
+                            const container = el.closest("[data-asin]") || el;
+                            container.style.setProperty('display', 'none', 'important');
+                        });
+                    }
+                    cleanAmazon();
+                    setInterval(cleanAmazon, 1500);
+                })();
+            """.trimIndent()
+        ),
+        ExtensionEntity(
             id = 6,
             identifier = "font_enhancer",
             name = "Realce de Tipografía y Contraste",
-            description = "Aumenta la nitidez del texto, suavizado de fuentes y legibilidad general.",
+            description = "Aumenta la nitidez del texto, suavizado de fuentes y legibilidad en pantallas AMOLED.",
             version = "1.1.0",
             author = "Aura Accessibility",
             iconCategory = "code",
@@ -392,4 +487,23 @@ object BuiltInExtensions {
             """.trimIndent()
         )
     )
+
+    fun getRecommendedExtensionForUrl(url: String, allExtensions: List<ExtensionEntity>): ExtensionEntity? {
+        val lowerUrl = url.lowercase()
+        return when {
+            lowerUrl.contains("youtube.com") || lowerUrl.contains("youtu.be") -> {
+                allExtensions.find { it.identifier == "youtube_age_bypass" && !it.isEnabled }
+            }
+            lowerUrl.contains("wikipedia.org") -> {
+                allExtensions.find { it.identifier == "wikipedia_zen" && !it.isEnabled }
+            }
+            lowerUrl.contains("amazon.") -> {
+                allExtensions.find { it.identifier == "shopping_price_helper" && !it.isEnabled }
+            }
+            lowerUrl.contains("medium.com") || lowerUrl.contains("nytimes.com") || lowerUrl.contains("elpais.com") || lowerUrl.contains("elmundo.es") || lowerUrl.contains("bbc.com") -> {
+                allExtensions.find { (it.identifier == "paywall_cleaner" || it.identifier == "zen_reader_mode") && !it.isEnabled }
+            }
+            else -> null
+        }
+    }
 }

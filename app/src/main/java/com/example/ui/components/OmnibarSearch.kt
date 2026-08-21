@@ -21,6 +21,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Public
@@ -70,6 +72,7 @@ fun OmnibarSearch(
     onNavigate: (String) -> Unit,
     onReload: () -> Unit,
     onOpenExtensionPopup: () -> Unit,
+    onOpenPrivacyInfo: (() -> Unit)? = null,
     isHomeHero: Boolean = false,
     initialFocus: Boolean = false
 ) {
@@ -94,60 +97,93 @@ fun OmnibarSearch(
         }
     }
 
+    // Slim, sleek search bar (42dp - 44dp height for a streamlined, modern feel)
+    val barBg = when {
+        currentTab.isIncognito -> if (isHomeHero) Color(0xF0181528) else Color(0xF513101E)
+        isHomeHero -> Color(0xD9181E29)
+        else -> Color(0xF0131722)
+    }
+
     GlassCapsule(
         modifier = modifier
             .fillMaxWidth()
-            .height(if (isHomeHero) 56.dp else 50.dp)
+            .height(if (isHomeHero) 44.dp else 42.dp)
             .testTag("omnibar_capsule"),
-        backgroundColor = if (isHomeHero) Color(0xD0181E29) else Color(0xE8141822)
+        backgroundColor = barBg
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp),
+                .padding(horizontal = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Leading Icon: Search icon or SSL Security lock or Domain icon
+            // Incognito indicator tag if in incognito mode
+            if (currentTab.isIncognito) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .padding(end = 6.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0x33A78BFA))
+                        .padding(horizontal = 5.dp, vertical = 2.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.VisibilityOff,
+                        contentDescription = "Modo Incógnito",
+                        tint = Color(0xFFA78BFA),
+                        modifier = Modifier.size(13.dp)
+                    )
+                }
+            }
+
+            // Leading Icon: Search or SSL lock (clickable for privacy summary)
             if (isHomeHero || isFocused) {
                 Icon(
                     imageVector = Icons.Default.Search,
                     contentDescription = "Buscar",
-                    tint = Color(0xFFA5B4FC),
-                    modifier = Modifier.size(20.dp)
+                    tint = if (currentTab.isIncognito) Color(0xFFA78BFA) else Color(0xFFA5B4FC),
+                    modifier = Modifier.size(17.dp)
                 )
             } else {
                 Box(
                     modifier = Modifier
-                        .size(30.dp)
+                        .size(28.dp)
                         .clip(CircleShape)
-                        .clickable { onReload() },
+                        .clickable {
+                            if (onOpenPrivacyInfo != null) {
+                                onOpenPrivacyInfo()
+                            } else {
+                                onReload()
+                            }
+                        }
+                        .testTag("omnibar_lock_button"),
                     contentAlignment = Alignment.Center
                 ) {
                     if (currentTab.isSecure) {
                         Icon(
                             imageVector = Icons.Default.Lock,
-                            contentDescription = "Conexión Segura",
+                            contentDescription = "Conexión Segura - Ver información de privacidad",
                             tint = Color(0xFF34D399),
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(15.dp)
                         )
                     } else {
                         Icon(
                             imageVector = Icons.Default.Public,
                             contentDescription = "Web",
                             tint = Color(0xFF94A3B8),
-                            modifier = Modifier.size(17.dp)
+                            modifier = Modifier.size(15.dp)
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(6.dp))
 
             // Main Input / URL Display
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(vertical = 4.dp),
+                    .padding(vertical = 2.dp),
                 contentAlignment = Alignment.CenterStart
             ) {
                 if (!isFocused && !isHomeHero && currentTab.url.isNotBlank() && !currentTab.isHomePage) {
@@ -169,7 +205,7 @@ fun OmnibarSearch(
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.SemiBold,
                                 color = Color.White,
-                                fontSize = 14.sp
+                                fontSize = 13.5.sp
                             ),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -201,7 +237,7 @@ fun OmnibarSearch(
                     singleLine = true,
                     textStyle = TextStyle(
                         color = Color.White,
-                        fontSize = if (isHomeHero) 15.sp else 14.sp,
+                        fontSize = if (isHomeHero) 14.sp else 13.5.sp,
                         fontWeight = FontWeight.Normal
                     ),
                     cursorBrush = SolidColor(Color(0xFF818CF8)),
@@ -217,11 +253,16 @@ fun OmnibarSearch(
                     ),
                     decorationBox = { innerTextField ->
                         if (queryText.isEmpty() && (isFocused || isHomeHero)) {
+                            val placeholderText = when {
+                                currentTab.isIncognito -> if (isHomeHero) "Buscar en privado (Incógnito)…" else "Escribe una URL privada…"
+                                isHomeHero -> "Buscar o escribir URL…"
+                                else -> "Escribe una dirección…"
+                            }
                             Text(
-                                text = if (isHomeHero) "Buscar o escribir URL…" else "Escribe una dirección…",
+                                text = placeholderText,
                                 style = TextStyle(
-                                    color = Color(0xFF94A3B8),
-                                    fontSize = if (isHomeHero) 15.sp else 14.sp
+                                    color = if (currentTab.isIncognito) Color(0xFFA78BFA).copy(alpha = 0.7f) else Color(0xFF94A3B8),
+                                    fontSize = if (isHomeHero) 14.sp else 13.5.sp
                                 )
                             )
                         }
@@ -240,13 +281,13 @@ fun OmnibarSearch(
             ) {
                 IconButton(
                     onClick = { queryText = "" },
-                    modifier = Modifier.size(28.dp).testTag("omnibar_clear_button")
+                    modifier = Modifier.size(26.dp).testTag("omnibar_clear_button")
                 ) {
                     Icon(
                         imageVector = Icons.Default.Clear,
                         contentDescription = "Limpiar",
                         tint = Color(0xFF94A3B8),
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(15.dp)
                     )
                 }
             }
@@ -259,7 +300,7 @@ fun OmnibarSearch(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(34.dp)
+                        .size(30.dp)
                         .clip(CircleShape)
                         .background(Color(0xFF6366F1))
                         .clickable { submitNavigation() }
@@ -270,7 +311,7 @@ fun OmnibarSearch(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = "Ir a página o buscar",
                         tint = Color.White,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }
@@ -279,9 +320,9 @@ fun OmnibarSearch(
                 // Extensions badge & quick popup launcher
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(10.dp))
                         .clickable { onOpenExtensionPopup() }
-                        .padding(horizontal = 6.dp, vertical = 4.dp)
+                        .padding(horizontal = 5.dp, vertical = 3.dp)
                         .testTag("extension_pill_button"),
                     contentAlignment = Alignment.Center
                 ) {
@@ -290,7 +331,7 @@ fun OmnibarSearch(
                             imageVector = Icons.Rounded.Extension,
                             contentDescription = "Extensiones en esta página",
                             tint = if (activeExtensionsCount > 0) Color(0xFF67E8F9) else Color(0xFF94A3B8),
-                            modifier = Modifier.size(17.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                         if (activeExtensionsCount > 0) {
                             Spacer(modifier = Modifier.width(3.dp))
@@ -301,7 +342,7 @@ fun OmnibarSearch(
                                 Text(
                                     text = "$activeExtensionsCount",
                                     color = Color.White,
-                                    fontSize = 10.sp,
+                                    fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                                 )
@@ -310,17 +351,15 @@ fun OmnibarSearch(
                     }
                 }
 
-                Spacer(modifier = Modifier.width(2.dp))
-
                 IconButton(
                     onClick = onReload,
-                    modifier = Modifier.size(32.dp).testTag("reload_button")
+                    modifier = Modifier.size(28.dp).testTag("reload_button")
                 ) {
                     Icon(
                         imageVector = Icons.Default.Refresh,
                         contentDescription = "Recargar",
                         tint = Color(0xFFCBD5E1),
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }

@@ -1,8 +1,8 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,12 +20,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.rounded.Extension
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.rounded.VpnKey
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ScrollableTabRow
@@ -41,8 +43,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -73,8 +78,11 @@ fun HomeScreen(
     onRemoveShortcut: (QuickShortcut) -> Unit,
     onOpenExtensionsManager: () -> Unit,
     onOpenBookmarksHistory: () -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    onOpenPrivacyInfo: () -> Unit = {},
+    onOpenNormalTab: () -> Unit = {}
 ) {
+    val isIncognito = currentTab.isIncognito
     val activeWallpaper = wallpaper ?: WallpaperOption.Aurora
     val activeEngine = searchEngine ?: SearchEngine.GOOGLE
     var currentTime by remember { mutableStateOf(getFormattedTime()) }
@@ -92,74 +100,150 @@ fun HomeScreen(
 
     Box(modifier = modifier.fillMaxSize()) {
         // --- Background Layer ---
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(activeWallpaper.previewGradient)
-        )
+        if (isIncognito) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color(0xFF1E1435),
+                                Color(0xFF130E24),
+                                Color(0xFF0B0914),
+                                Color(0xFF000000)
+                            )
+                        )
+                    )
+            )
+        } else if (activeWallpaper.isImage && activeWallpaper.drawableRes != null) {
+            Image(
+                painter = painterResource(id = activeWallpaper.drawableRes),
+                contentDescription = activeWallpaper.name,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(activeWallpaper.previewGradient)
+            )
+        }
 
         // --- Main Content Scrollable ---
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 24.dp),
+                .padding(horizontal = 20.dp, vertical = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Minimalist Clock & Greeting Header
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(bottom = 18.dp)
-            ) {
-                Text(
-                    text = currentTime,
-                    style = MaterialTheme.typography.displayMedium.copy(
-                        fontWeight = FontWeight.Light,
-                        color = Color.White,
-                        fontSize = 42.sp,
-                        letterSpacing = 1.sp
-                    )
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = currentDate,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFFA5B4FC),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = greeting,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFFE2E8F0),
-                            fontSize = 15.sp
-                        )
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = Color(0x33FFFFFF),
-                        modifier = Modifier.padding(2.dp)
+            if (isIncognito) {
+                // --- INCOGNITO HERO HEADER ---
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .padding(bottom = 16.dp)
+                        .testTag("incognito_home_header")
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.radialGradient(
+                                    listOf(Color(0xFF8B5CF6), Color(0xFF4C1D95), Color(0xFF1E1B4B))
+                                )
+                            )
+                            .border(1.5.dp, Color(0xFFA78BFA), CircleShape),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "AURA",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = Color(0xFF818CF8),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp
-                            ),
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        Icon(
+                            imageVector = Icons.Default.VisibilityOff,
+                            contentDescription = "Modo Incógnito",
+                            tint = Color.White,
+                            modifier = Modifier.size(36.dp)
                         )
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text(
+                        text = "Modo Incógnito",
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            fontSize = 26.sp
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = "Navegación privada y protegida",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = Color(0xFFA78BFA),
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    )
+                }
+            } else {
+                // --- NORMAL HERO HEADER ---
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                ) {
+                    Text(
+                        text = currentTime,
+                        style = MaterialTheme.typography.displayMedium.copy(
+                            fontWeight = FontWeight.Light,
+                            color = Color.White,
+                            fontSize = 42.sp,
+                            letterSpacing = 1.sp
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = currentDate,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = Color(0xFFA5B4FC),
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = greeting,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFFE2E8F0),
+                                fontSize = 14.5.sp
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0x33FFFFFF),
+                            modifier = Modifier.padding(2.dp)
+                        ) {
+                            Text(
+                                text = "AURA",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = Color(0xFF818CF8),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 10.sp
+                                ),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -175,7 +259,7 @@ fun HomeScreen(
                 modifier = Modifier
                     .widthIn(max = 480.dp)
                     .fillMaxWidth()
-                    .padding(bottom = 12.dp)
+                    .padding(bottom = 14.dp)
             ) {
                 SearchEngine.entries.forEach { engine ->
                     val isSelected = engine == activeEngine
@@ -185,10 +269,16 @@ fun HomeScreen(
                         modifier = Modifier
                             .padding(end = 8.dp)
                             .clip(RoundedCornerShape(16.dp))
-                            .background(if (isSelected) Color(0xFF6366F1) else Color(0x33000000))
+                            .background(
+                                if (isSelected) {
+                                    if (isIncognito) Color(0xFF7C3AED) else Color(0xFF6366F1)
+                                } else Color(0x33000000)
+                            )
                             .border(
                                 1.dp,
-                                if (isSelected) Color(0xFFA5B4FC) else Color(0x22FFFFFF),
+                                if (isSelected) {
+                                    if (isIncognito) Color(0xFFC4B5FD) else Color(0xFFA5B4FC)
+                                } else Color(0x22FFFFFF),
                                 RoundedCornerShape(16.dp)
                             )
                             .padding(horizontal = 14.dp, vertical = 6.dp)
@@ -205,7 +295,7 @@ fun HomeScreen(
                 }
             }
 
-            // Omnibar Hero Input
+            // Slim & Sleek Omnibar Hero Input
             Box(
                 modifier = Modifier
                     .widthIn(max = 520.dp)
@@ -217,149 +307,136 @@ fun HomeScreen(
                     onNavigate = onNavigate,
                     onReload = {},
                     onOpenExtensionPopup = onOpenExtensionsManager,
+                    onOpenPrivacyInfo = onOpenPrivacyInfo,
                     isHomeHero = true
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Privacy & Extensions Stats Capsule
-            GlassSurface(
-                modifier = Modifier
-                    .widthIn(max = 520.dp)
-                    .fillMaxWidth()
-                    .clickable { onOpenExtensionsManager() }
-                    .testTag("privacy_stats_banner"),
-                shape = RoundedCornerShape(20.dp),
-                backgroundColor = Color(0xBF161C27),
-                elevation = 6.dp
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(Color(0x3310B981)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Shield,
-                                contentDescription = "Escudo Aura",
-                                tint = Color(0xFF34D399),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = "Navegación Protegida",
-                                style = MaterialTheme.typography.titleSmall.copy(
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color.White,
-                                    fontSize = 14.sp
-                                )
-                            )
-                            Text(
-                                text = "$blockedAdsCount elementos bloqueados • $enabledExtensionsCount extensiones activas",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFF94A3B8),
-                                    fontSize = 11.sp
-                                )
-                            )
-                        }
-                    }
-
-                    Icon(
-                        imageVector = Icons.Rounded.Extension,
-                        contentDescription = "Gestionar",
-                        tint = Color(0xFF818CF8),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Speed Dial Shortcuts
-            Box(
-                modifier = Modifier
-                    .widthIn(max = 520.dp)
-                    .fillMaxWidth()
-            ) {
-                GlassSurface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
-                    backgroundColor = Color(0xAA131722),
-                    elevation = 8.dp
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Accesos Rápidos",
-                                style = MaterialTheme.typography.titleSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White,
-                                    fontSize = 14.sp
-                                )
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        SpeedDialGrid(
-                            shortcuts = shortcuts,
-                            onOpenShortcut = onNavigate,
-                            onAddShortcut = onAddShortcut,
-                            onRemoveShortcut = onRemoveShortcut
-                        )
-                    }
-                }
-            }
-
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Quick Hub Action Pills (Bookmarks, History, Extensions, Settings)
-            Row(
-                modifier = Modifier
-                    .widthIn(max = 520.dp)
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                QuickHubPill(
-                    icon = Icons.Default.Bookmark,
-                    label = "Marcadores",
-                    modifier = Modifier.weight(1f),
-                    onClick = onOpenBookmarksHistory
-                )
-                QuickHubPill(
-                    icon = Icons.Default.History,
-                    label = "Historial",
-                    modifier = Modifier.weight(1f),
-                    onClick = onOpenBookmarksHistory
-                )
-                QuickHubPill(
-                    icon = Icons.Rounded.Extension,
-                    label = "Extensiones",
-                    modifier = Modifier.weight(1f),
-                    onClick = onOpenExtensionsManager
-                )
-                QuickHubPill(
-                    icon = Icons.Default.Settings,
-                    label = "Ajustes",
-                    modifier = Modifier.weight(1f),
-                    onClick = onOpenSettings
-                )
+            if (isIncognito) {
+                // Incognito Informational Privacy Card
+                Box(
+                    modifier = Modifier
+                        .widthIn(max = 520.dp)
+                        .fillMaxWidth()
+                ) {
+                    GlassSurface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(22.dp),
+                        backgroundColor = Color(0xDD171126),
+                        borderColor = Color(0x44A78BFA),
+                        elevation = 6.dp
+                    ) {
+                        Column(modifier = Modifier.padding(18.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Security,
+                                    contentDescription = null,
+                                    tint = Color(0xFFA78BFA),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Lo que hace el Modo Incógnito:",
+                                    style = MaterialTheme.typography.titleSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        fontSize = 14.sp
+                                    )
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            IncognitoFeatureItem(
+                                icon = Icons.Default.Close,
+                                iconColor = Color(0xFFEF4444),
+                                title = "No guarda historial",
+                                description = "Las páginas visitadas no se registrarán en tu historial."
+                            )
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            IncognitoFeatureItem(
+                                icon = Icons.Default.Close,
+                                iconColor = Color(0xFFEF4444),
+                                title = "Sin cookies ni datos de sitios",
+                                description = "Las sesiones y cookies temporales se borran al cerrar la pestaña."
+                            )
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            IncognitoFeatureItem(
+                                icon = Icons.Default.CheckCircle,
+                                iconColor = Color(0xFF34D399),
+                                title = "Protección anti-rastreo activa",
+                                description = "Bloqueador de anuncios y telemetría de terceros habilitado."
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Button(
+                                onClick = onOpenNormalTab,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0x33A78BFA)),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("switch_to_normal_tab_button")
+                            ) {
+                                Text(
+                                    text = "Abrir pestaña normal",
+                                    color = Color(0xFFDDD6FE),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Normal Speed Dial Shortcuts Grid
+                Box(
+                    modifier = Modifier
+                        .widthIn(max = 520.dp)
+                        .fillMaxWidth()
+                ) {
+                    GlassSurface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(22.dp),
+                        backgroundColor = Color(0xAA131722),
+                        elevation = 6.dp
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Accesos Rápidos",
+                                    style = MaterialTheme.typography.titleSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        fontSize = 14.sp
+                                    )
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            SpeedDialGrid(
+                                shortcuts = shortcuts,
+                                onOpenShortcut = onNavigate,
+                                onAddShortcut = onAddShortcut,
+                                onRemoveShortcut = onRemoveShortcut
+                            )
+                        }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(90.dp)) // Space for floating bottom bar
@@ -368,39 +445,49 @@ fun HomeScreen(
 }
 
 @Composable
-private fun QuickHubPill(
+private fun IncognitoFeatureItem(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
+    iconColor: Color,
+    title: String,
+    description: String
 ) {
-    GlassSurface(
-        modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        backgroundColor = Color(0xB0161C27),
-        elevation = 4.dp
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top
     ) {
-        Column(
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(top = 2.dp)
+                .size(20.dp)
+                .clip(CircleShape)
+                .background(iconColor.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = icon,
-                contentDescription = label,
-                tint = Color(0xFFA5B4FC),
-                modifier = Modifier.size(20.dp)
+                contentDescription = null,
+                tint = iconColor,
+                modifier = Modifier.size(13.dp)
             )
-            Spacer(modifier = Modifier.height(4.dp))
+        }
+
+        Spacer(modifier = Modifier.width(10.dp))
+
+        Column {
             Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall.copy(
-                    color = Color(0xFFE2E8F0),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium
+                text = title,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                    fontSize = 13.sp
+                )
+            )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color(0xFF94A3B8),
+                    fontSize = 11.5.sp,
+                    lineHeight = 15.sp
                 )
             )
         }

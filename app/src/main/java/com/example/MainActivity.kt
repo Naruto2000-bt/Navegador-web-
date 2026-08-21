@@ -33,6 +33,7 @@ import com.example.ui.screens.ExtensionEditorSheet
 import com.example.ui.screens.ExtensionPagePopupSheet
 import com.example.ui.screens.ExtensionsManagerSheet
 import com.example.ui.screens.HomeScreen
+import com.example.ui.screens.PrivacyInfoSheet
 import com.example.ui.screens.SettingsSheet
 import com.example.ui.screens.TabsOverviewSheet
 import com.example.ui.theme.MyApplicationTheme
@@ -84,8 +85,10 @@ fun AuraBrowserApp(
     val showBookmarksHistory by viewModel.showBookmarksHistory.collectAsState()
     val showSettings by viewModel.showSettings.collectAsState()
     val showExtensionPagePopup by viewModel.showExtensionPagePopup.collectAsState()
+    val showPrivacyInfo by viewModel.showPrivacyInfo.collectAsState()
     val showFindInPage by viewModel.showFindInPage.collectAsState()
     val findQuery by viewModel.findQuery.collectAsState()
+    val pageTranslationState by viewModel.pageTranslationState.collectAsState()
     val currentVideoSpeed by viewModel.currentVideoSpeed.collectAsState()
     val webViewAction by viewModel.webViewAction.collectAsState()
 
@@ -127,7 +130,9 @@ fun AuraBrowserApp(
                     onRemoveShortcut = { shortcut -> viewModel.removeCustomShortcut(shortcut) },
                     onOpenExtensionsManager = { viewModel.setExtensionsManagerVisible(true) },
                     onOpenBookmarksHistory = { viewModel.setBookmarksHistoryVisible(true) },
-                    onOpenSettings = { viewModel.setSettingsVisible(true) }
+                    onOpenSettings = { viewModel.setSettingsVisible(true) },
+                    onOpenPrivacyInfo = { viewModel.setPrivacyInfoVisible(true) },
+                    onOpenNormalTab = { viewModel.openNewTab(isIncognito = false) }
                 )
             } else {
                 BrowserScreen(
@@ -137,8 +142,17 @@ fun AuraBrowserApp(
                     webViewAction = webViewAction,
                     showFindInPage = showFindInPage,
                     findQuery = findQuery,
+                    translationState = pageTranslationState,
                     onFindQueryChange = { q -> viewModel.setFindQuery(q) },
                     onCloseFindInPage = { viewModel.setFindInPageVisible(false) },
+                    onTranslate = { targetLang -> viewModel.translatePage(targetLang) },
+                    onRevertTranslation = { viewModel.revertPageTranslation() },
+                    onSelectSourceLang = { lang -> viewModel.setTranslationSource(lang) },
+                    onSelectTargetLang = { lang -> viewModel.setTranslationTarget(lang) },
+                    onDismissTranslation = { viewModel.hideTranslationBanner(currentTab.url) },
+                    onLanguageDetected = { lang, url -> viewModel.onLanguageDetected(lang, url) },
+                    onWebPageStarted = { url -> viewModel.onWebPageStarted(url) },
+                    onTranslationFinished = { viewModel.finishTranslating() },
                     onUpdateTab = { url, title, fav, loading, prog, back, fwd, sec ->
                         viewModel.updateTabState(
                             tabId = currentTab.id,
@@ -156,6 +170,8 @@ fun AuraBrowserApp(
                     onRecordHistory = { url, title -> viewModel.recordHistory(url, title) },
                     onClearWebViewAction = { viewModel.clearWebViewAction() },
                     onOpenExtensionPopup = { viewModel.setExtensionPagePopupVisible(true) },
+                    onOpenPrivacyInfo = { viewModel.setPrivacyInfoVisible(true) },
+                    onToggleExtension = { ext -> viewModel.toggleExtension(ext) },
                     onAdBlocked = { viewModel.incrementAdBlockCount() }
                 )
             }
@@ -174,6 +190,7 @@ fun AuraBrowserApp(
                 onHome = { viewModel.goHome() },
                 onOpenExtensionsManager = { viewModel.setExtensionsManagerVisible(true) },
                 onOpenTabsOverview = { viewModel.setTabsOverviewVisible(true) },
+                onOpenNewIncognitoTab = { viewModel.openIncognitoTab() },
                 onToggleBookmark = {
                     viewModel.toggleBookmark(currentTab.url, currentTab.title)
                     coroutineScope.launch {
@@ -185,7 +202,9 @@ fun AuraBrowserApp(
                 onOpenSettings = { viewModel.setSettingsVisible(true) },
                 onToggleDesktopMode = { viewModel.toggleDesktopMode() },
                 onOpenFindInPage = { viewModel.setFindInPageVisible(true) },
-                onTriggerReaderMode = { viewModel.triggerWebViewAction(WebViewAction.TriggerReaderMode) }
+                onTriggerReaderMode = { viewModel.triggerWebViewAction(WebViewAction.TriggerReaderMode) },
+                onOpenTranslate = { viewModel.showTranslationBanner() },
+                onOpenPrivacyInfo = { viewModel.setPrivacyInfoVisible(true) }
             )
         }
 
@@ -199,7 +218,9 @@ fun AuraBrowserApp(
                 onSelectTab = { tabId -> viewModel.selectTab(tabId) },
                 onCloseTab = { tabId -> viewModel.closeTab(tabId) },
                 onNewTab = { viewModel.openNewTab() },
+                onNewIncognitoTab = { viewModel.openIncognitoTab() },
                 onCloseAllTabs = { viewModel.closeAllTabs() },
+                onCloseAllIncognitoTabs = { viewModel.closeAllIncognitoTabs() },
                 onDismiss = { viewModel.setTabsOverviewVisible(false) }
             )
         }
@@ -259,7 +280,25 @@ fun AuraBrowserApp(
             )
         }
 
-        // 5. Bookmarks & History Sheet
+        // 5. Privacy & Security Info Sheet (from Lock 🔒 or Menu 🛡️)
+        if (showPrivacyInfo) {
+            PrivacyInfoSheet(
+                currentTab = currentTab,
+                blockedAdsCount = blockedAdsCount,
+                enabledExtensionsCount = enabledExtensionsCount,
+                onOpenExtensionsManager = {
+                    viewModel.setPrivacyInfoVisible(false)
+                    viewModel.setExtensionsManagerVisible(true)
+                },
+                onOpenSettings = {
+                    viewModel.setPrivacyInfoVisible(false)
+                    viewModel.setSettingsVisible(true)
+                },
+                onDismiss = { viewModel.setPrivacyInfoVisible(false) }
+            )
+        }
+
+        // 6. Bookmarks & History Sheet
         if (showBookmarksHistory) {
             BookmarksHistorySheet(
                 bookmarks = bookmarks,
@@ -277,7 +316,7 @@ fun AuraBrowserApp(
             )
         }
 
-        // 6. Settings Sheet
+        // 7. Settings Sheet
         if (showSettings) {
             SettingsSheet(
                 currentWallpaper = wallpaper,

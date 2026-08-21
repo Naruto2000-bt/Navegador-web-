@@ -177,6 +177,15 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     private val _showFindInPage = MutableStateFlow(false)
     val showFindInPage: StateFlow<Boolean> = _showFindInPage.asStateFlow()
 
+    private val _showPrivacyInfo = MutableStateFlow(false)
+    val showPrivacyInfo: StateFlow<Boolean> = _showPrivacyInfo.asStateFlow()
+
+    // Page Translation State
+    private val _pageTranslationState = MutableStateFlow(com.example.model.PageTranslationState())
+    val pageTranslationState: StateFlow<com.example.model.PageTranslationState> = _pageTranslationState.asStateFlow()
+
+    private var dismissedTranslationUrls = mutableSetOf<String>()
+
     private val _findQuery = MutableStateFlow("")
     val findQuery: StateFlow<String> = _findQuery.asStateFlow()
 
@@ -256,6 +265,10 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         _showTabsOverview.value = false
     }
 
+    fun openIncognitoTab(url: String = "aura://home") {
+        openNewTab(url = url, isIncognito = true)
+    }
+
     fun selectTab(tabId: String) {
         _activeTabId.value = tabId
         _showTabsOverview.value = false
@@ -285,6 +298,20 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         _tabs.value = listOf(freshTab)
         _activeTabId.value = freshTab.id
         _showTabsOverview.value = false
+    }
+
+    fun closeAllIncognitoTabs() {
+        val normalTabs = _tabs.value.filterNot { it.isIncognito }
+        if (normalTabs.isEmpty()) {
+            val freshTab = BrowserTab(isIncognito = false)
+            _tabs.value = listOf(freshTab)
+            _activeTabId.value = freshTab.id
+        } else {
+            _tabs.value = normalTabs
+            if (_tabs.value.none { it.id == _activeTabId.value }) {
+                _activeTabId.value = normalTabs.first().id
+            }
+        }
     }
 
     fun updateTabState(
@@ -611,6 +638,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         _showFindInPage.value = visible
         if (!visible) _findQuery.value = ""
     }
+    fun setPrivacyInfoVisible(visible: Boolean) { _showPrivacyInfo.value = visible }
     fun setFindQuery(query: String) { _findQuery.value = query }
 
     fun setWallpaper(option: WallpaperOption) {
@@ -649,6 +677,87 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     fun clearBrowsingData(cookies: Boolean, cache: Boolean, history: Boolean) {
         clearBrowsingDataDetailed(cookies, cache, history, "ALL")
     }
+
+    // --- Translation Controls ---
+    fun onLanguageDetected(detectedLang: String, url: String) {
+        val clean = detectedLang.trim().lowercase().split("-", "_")[0]
+        if (clean.isNotEmpty()) {
+            val isSpanish = clean == "es"
+            val target = if (isSpanish) "en" else "es"
+            _pageTranslationState.value = _pageTranslationState.value.copy(
+                isBannerVisible = true,
+                sourceLangCode = clean,
+                targetLangCode = target,
+                isTranslated = false
+            )
+        }
+    }
+
+    fun onWebPageStarted(url: String) {
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+            // Automatically make the translation bar available and visible when opening any web page
+            _pageTranslationState.value = _pageTranslationState.value.copy(
+                isBannerVisible = true,
+                isTranslated = false,
+                isTranslating = false
+            )
+        } else {
+            _pageTranslationState.value = _pageTranslationState.value.copy(
+                isBannerVisible = false,
+                isTranslated = false,
+                isTranslating = false
+            )
+        }
+    }
+
+    fun showTranslationBanner(sourceLang: String? = null, targetLang: String? = null) {
+        _pageTranslationState.value = _pageTranslationState.value.copy(
+            isBannerVisible = true,
+            sourceLangCode = sourceLang ?: _pageTranslationState.value.sourceLangCode,
+            targetLangCode = targetLang ?: _pageTranslationState.value.targetLangCode
+        )
+    }
+
+    fun hideTranslationBanner(forCurrentUrl: String? = null) {
+        if (forCurrentUrl != null) {
+            dismissedTranslationUrls.add(forCurrentUrl)
+        }
+        _pageTranslationState.value = _pageTranslationState.value.copy(isBannerVisible = false)
+    }
+
+    fun setTranslationSource(lang: String) {
+        _pageTranslationState.value = _pageTranslationState.value.copy(sourceLangCode = lang)
+    }
+
+    fun setTranslationTarget(lang: String) {
+        _pageTranslationState.value = _pageTranslationState.value.copy(targetLangCode = lang)
+    }
+
+    fun translatePage(targetLang: String? = null) {
+        val target = targetLang ?: _pageTranslationState.value.targetLangCode
+        val source = _pageTranslationState.value.sourceLangCode
+        _pageTranslationState.value = _pageTranslationState.value.copy(
+            targetLangCode = target,
+            isTranslating = true,
+            isBannerVisible = true
+        )
+        triggerWebViewAction(WebViewAction.TranslatePage(sourceLang = source, targetLang = target))
+    }
+
+    fun finishTranslating() {
+        _pageTranslationState.value = _pageTranslationState.value.copy(
+            isTranslating = false,
+            isTranslated = true
+        )
+    }
+
+    fun revertPageTranslation() {
+        _pageTranslationState.value = _pageTranslationState.value.copy(
+            isTranslating = false,
+            isTranslated = false
+        )
+        triggerWebViewAction(WebViewAction.RevertTranslation)
+    }
 }
 
 sealed class WebViewAction {
@@ -663,4 +772,6 @@ sealed class WebViewAction {
     data class ToggleExtension(val extension: ExtensionEntity) : WebViewAction()
     data class FindInPage(val query: String, val forward: Boolean = true) : WebViewAction()
     data class RunScript(val script: String) : WebViewAction()
+    data class TranslatePage(val sourceLang: String, val targetLang: String) : WebViewAction()
+    object RevertTranslation : WebViewAction()
 }

@@ -1,6 +1,8 @@
 package com.example.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,21 +26,27 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -72,6 +81,31 @@ fun ExtensionsManagerSheet(
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf("TODAS") }
+
+    val categories = listOf(
+        "TODAS" to "Todas",
+        "shield" to "🛡️ Privacidad",
+        "video" to "🎬 Video",
+        "book" to "📖 Lectura",
+        "moon" to "🌙 Tema Oscuro",
+        "sparkle" to "✨ Utilidades"
+    )
+
+    val filteredExtensions = remember(extensions, searchQuery, selectedCategory) {
+        extensions.filter { ext ->
+            val matchesCategory = if (selectedCategory == "TODAS") true else ext.iconCategory == selectedCategory
+            val matchesQuery = if (searchQuery.isBlank()) true else {
+                val q = searchQuery.trim().lowercase()
+                ext.name.lowercase().contains(q) ||
+                ext.description.lowercase().contains(q) ||
+                ext.matchUrlPattern.lowercase().contains(q) ||
+                ext.identifier.lowercase().contains(q)
+            }
+            matchesCategory && matchesQuery
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -82,7 +116,7 @@ fun ExtensionsManagerSheet(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 20.dp, vertical = 20.dp)
+                .padding(horizontal = 18.dp, vertical = 18.dp)
         ) {
             // Header
             Row(
@@ -93,7 +127,7 @@ fun ExtensionsManagerSheet(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(38.dp)
                             .clip(CircleShape)
                             .background(Color(0xFF312E81)),
                         contentAlignment = Alignment.Center
@@ -102,54 +136,164 @@ fun ExtensionsManagerSheet(
                             imageVector = Icons.Rounded.Extension,
                             contentDescription = "Extensiones",
                             tint = Color(0xFF818CF8),
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(22.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
                     Column {
                         Text(
-                            text = "Extensiones y Scripts",
+                            text = "Tienda de Extensiones",
                             style = MaterialTheme.typography.titleLarge.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                color = Color.White,
+                                fontSize = 18.sp
                             )
                         )
                         Text(
-                            text = "${extensions.count { it.isEnabled }} de ${extensions.size} activas",
+                            text = "${extensions.count { it.isEnabled }} activas • 1 clic para activar",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = Color(0xFF94A3B8),
-                                fontSize = 12.sp
+                                fontSize = 11.sp
                             )
                         )
                     }
                 }
 
-                Button(
+                // Advanced / Create script button
+                IconButton(
                     onClick = onAddNewExtension,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.testTag("create_extension_button")
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF1E293B))
+                        .testTag("create_extension_button")
                 ) {
-                    Icon(imageVector = Icons.Default.Add, contentDescription = "Crear", modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Crear", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Crear script personalizado",
+                        tint = Color(0xFFA5B4FC),
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Search Bar
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = {
+                    Text(
+                        text = "Buscar extensión (ej. YouTube, modo oscuro, lector...)",
+                        color = Color(0xFF64748B),
+                        fontSize = 13.sp
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Buscar",
+                        tint = Color(0xFF818CF8),
+                        modifier = Modifier.size(18.dp)
+                    )
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(
+                                imageVector = Icons.Default.Clear,
+                                contentDescription = "Limpiar",
+                                tint = Color(0xFF94A3B8),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    focusedContainerColor = Color(0xFF1A202E),
+                    unfocusedContainerColor = Color(0xFF1A202E),
+                    focusedBorderColor = Color(0xFF818CF8),
+                    unfocusedBorderColor = Color(0x22FFFFFF)
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+                    .testTag("extensions_search_input")
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Category Chips Row
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(categories) { (id, label) ->
+                    val isSelected = selectedCategory == id
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { selectedCategory = id },
+                        label = {
+                            Text(
+                                text = label,
+                                fontSize = 11.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFF4F46E5),
+                            selectedLabelColor = Color.White,
+                            containerColor = Color(0xFF1A202E),
+                            labelColor = Color(0xFFCBD5E1)
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             // List of Extensions
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.weight(1f)
-            ) {
-                items(extensions, key = { it.id }) { extension ->
-                    ExtensionItemCard(
-                        extension = extension,
-                        onToggle = { onToggleExtension(extension) },
-                        onEdit = { onEditExtension(extension) },
-                        onDelete = { onDeleteExtension(extension.id) }
-                    )
+            if (filteredExtensions.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Rounded.Extension,
+                            contentDescription = null,
+                            tint = Color(0xFF475569),
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "No se encontraron extensiones para \"$searchQuery\"",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    items(filteredExtensions, key = { it.id }) { extension ->
+                        ExtensionItemCard(
+                            extension = extension,
+                            onToggle = { onToggleExtension(extension) },
+                            onEdit = { onEditExtension(extension) },
+                            onDelete = { onDeleteExtension(extension.id) }
+                        )
+                    }
                 }
             }
         }
@@ -168,15 +312,15 @@ fun ExtensionItemCard(
     GlassSurface(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(18.dp))
             .clickable { expanded = !expanded }
             .testTag("extension_card_${extension.identifier}"),
-        shape = RoundedCornerShape(20.dp),
-        backgroundColor = if (extension.isEnabled) Color(0xFF1B2232) else Color(0xFF141926),
-        borderColor = if (extension.isEnabled) Color(0x40818CF8) else Color(0x1FFFFFFF),
-        elevation = 4.dp
+        shape = RoundedCornerShape(18.dp),
+        backgroundColor = if (extension.isEnabled) Color(0xFF1C2333) else Color(0xFF151A27),
+        borderColor = if (extension.isEnabled) Color(0x55818CF8) else Color(0x1AFFFFFF),
+        elevation = 3.dp
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -188,8 +332,8 @@ fun ExtensionItemCard(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(44.dp)
-                            .clip(RoundedCornerShape(14.dp))
+                            .size(42.dp)
+                            .clip(RoundedCornerShape(12.dp))
                             .background(getCategoryBackground(extension.iconCategory)),
                         contentAlignment = Alignment.Center
                     ) {
@@ -197,7 +341,7 @@ fun ExtensionItemCard(
                             imageVector = getCategoryIcon(extension.iconCategory),
                             contentDescription = extension.name,
                             tint = getCategoryTint(extension.iconCategory),
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
@@ -220,7 +364,7 @@ fun ExtensionItemCard(
                                     color = Color(0x336366F1)
                                 ) {
                                     Text(
-                                        text = "OFICIAL",
+                                        text = "LISTA",
                                         color = Color(0xFFA5B4FC),
                                         fontSize = 9.sp,
                                         fontWeight = FontWeight.Bold,
@@ -236,15 +380,17 @@ fun ExtensionItemCard(
                             text = extension.description,
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = Color(0xFF94A3B8),
-                                fontSize = 12.sp
+                                fontSize = 12.sp,
+                                lineHeight = 15.sp
                             ),
                             maxLines = if (expanded) Int.MAX_VALUE else 2
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(10.dp))
 
+                // Single-click Switch with high contrast and smooth feedback
                 Switch(
                     checked = extension.isEnabled,
                     onCheckedChange = { onToggle() },
@@ -262,13 +408,13 @@ fun ExtensionItemCard(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 12.dp)
+                        .padding(top = 10.dp)
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(1.dp)
-                            .background(Color(0x22FFFFFF))
+                            .background(Color(0x1AFFFFFF))
                     )
                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -278,11 +424,10 @@ fun ExtensionItemCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Patrón: ${extension.matchUrlPattern} • Ejecución: ${extension.runAt}",
+                            text = "Sitio: ${if (extension.matchUrlPattern == "*") "Todos los sitios web" else extension.matchUrlPattern}",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = Color(0xFFCBD5E1),
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace
+                                fontSize = 11.sp
                             )
                         )
 
@@ -290,24 +435,24 @@ fun ExtensionItemCard(
                             if (!extension.isBuiltIn) {
                                 IconButton(
                                     onClick = onEdit,
-                                    modifier = Modifier.size(32.dp).testTag("edit_ext_${extension.id}")
+                                    modifier = Modifier.size(30.dp).testTag("edit_ext_${extension.id}")
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Edit,
                                         contentDescription = "Editar",
                                         tint = Color(0xFF818CF8),
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(16.dp)
                                     )
                                 }
                                 IconButton(
                                     onClick = onDelete,
-                                    modifier = Modifier.size(32.dp).testTag("delete_ext_${extension.id}")
+                                    modifier = Modifier.size(30.dp).testTag("delete_ext_${extension.id}")
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Delete,
                                         contentDescription = "Eliminar",
                                         tint = Color(0xFFEF4444),
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(16.dp)
                                     )
                                 }
                             }

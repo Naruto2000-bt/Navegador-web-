@@ -7,7 +7,14 @@ sealed class WallpaperOption(
     val id: String,
     val name: String,
     val isImage: Boolean = false,
-    val previewGradient: Brush
+    val drawableRes: Int? = null,
+    val previewGradient: Brush = Brush.verticalGradient(
+        listOf(
+            Color(0xFF18181B),
+            Color(0xFF09090B),
+            Color(0xFF000000)
+        )
+    )
 ) {
     data object Aurora : WallpaperOption(
         id = "aurora",
